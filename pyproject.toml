@@ -1,0 +1,31 @@
+[project]
+name = "pgc-risk"
+version = "0.1.0"
+description = "Polygenic risk estimates for psychiatric disorders from PGC GWAS summary statistics"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "duckdb>=1.1",          # build step only: reads the parquet shards
+    "huggingface_hub>=0.30",  # fetch step only
+]
+
+[project.optional-dependencies]
+lan = ["cryptography>=42"]    # HTTPS certificate for `pgc-risk gui --lan`
+dev = ["pytest", "cryptography>=42"]
+
+[project.scripts]
+pgc-risk = "pgc_risk.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pgc_risk"]
+
+[tool.setuptools.package-data]
+pgc_risk = ["*.json", "*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

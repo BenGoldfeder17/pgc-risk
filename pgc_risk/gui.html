@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pgc-risk</title>
+<style>
+:root {
+  color-scheme: light;
+  --plane: #f9f9f7;
+  --surface: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --wash: rgba(11, 11, 11, 0.04);
+  /* one hue, two shades (validated as an ordinal ramp on each surface) */
+  --baseline: #6da7ec;      /* blue 300: population baseline */
+  --estimate: #2a78d6;      /* blue 450: this genome */
+  --accent: #2a78d6;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --plane: #0d0d0d;
+    --surface: #1a1a19;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --wash: rgba(255, 255, 255, 0.05);
+    --baseline: #256abf;    /* blue 500 */
+    --estimate: #6da7ec;    /* blue 300 */
+    --accent: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --plane: #0d0d0d;
+  --surface: #1a1a19;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+  --wash: rgba(255, 255, 255, 0.05);
+  --baseline: #256abf;
+  --estimate: #6da7ec;
+  --accent: #3987e5;
+}
+* { box-sizing: border-box; }
+html { background: var(--plane); }
+body {
+  margin: 0; padding: 32px 16px 64px;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text-primary); background: var(--plane);
+}
+main { max-width: 980px; margin: 0 auto; }
+h1 { font-size: 26px; line-height: 1.2; margin: 0 0 4px; font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 2px; font-weight: 650; }
+p { margin: 0 0 10px; }
+.lede { color: var(--text-secondary); margin-bottom: 20px; max-width: 70ch; }
+.sub { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 14px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px 22px; margin-bottom: 16px;
+}
+[hidden] { display: none !important; }
+
+/* drop zone */
+#drop {
+  border: 1.5px dashed var(--axis); border-radius: 12px; padding: 34px 20px; text-align: center;
+  background: var(--surface); cursor: pointer; transition: border-color .12s, background .12s;
+}
+#drop:hover, #drop:focus-visible, #drop.over { border-color: var(--accent); background: var(--wash); outline: none; }
+#drop strong { display: block; font-size: 17px; font-weight: 650; margin-bottom: 4px; }
+#drop span { color: var(--text-secondary); font-size: 13.5px; }
+.private { display: flex; gap: 10px; align-items: flex-start; color: var(--text-secondary); font-size: 13.5px; margin-top: 14px; }
+.private svg { flex: none; margin-top: 2px; }
+.share { margin-top: 18px; }
+.share ul { margin: 0 0 10px; padding-left: 20px; }
+.share p { margin-bottom: 8px; }
+code { font: 13.5px ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.share li code { font-size: 15px; font-weight: 600; }
+.code { font-size: 20px; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+
+/* progress */
+.meter { height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; margin: 10px 0 6px; }
+.meter > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 4px; transition: width .25s; }
+#stage { font-weight: 600; }
+#stage-detail { color: var(--text-secondary); font-size: 13.5px; }
+
+/* messages */
+.msg { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px;
+       border: 1px solid var(--border); background: var(--surface); margin-bottom: 12px; }
+.msg .ico { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+            font-size: 13px; font-weight: 700; color: #fff; margin-top: 1px; }
+.msg.warning .ico { background: var(--warning); color: #0b0b0b; }
+.msg.critical .ico { background: var(--critical); }
+.msg b { display: block; }
+
+/* file summary */
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+dl.facts dt { color: var(--text-secondary); }
+dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.status i { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center;
+            font-style: normal; font-size: 11px; font-weight: 700; color: #fff; }
+.status.good i { background: var(--good); }
+.status.warning i { background: var(--warning); color: #0b0b0b; }
+.status.critical i { background: var(--critical); }
+
+/* chart */
+.legend { display: flex; gap: 18px; flex-wrap: wrap; color: var(--text-secondary); font-size: 13.5px; margin: 6px 0 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dot.b { background: var(--surface); border: 2.5px solid var(--baseline); }   /* hollow = baseline */
+.dot.e { background: var(--estimate); }                                       /* filled = this genome */
+#chart { position: relative; }
+.row { display: grid; grid-template-columns: minmax(150px, 232px) 1fr 108px; align-items: stretch; border-radius: 6px; }
+.row:hover, .row:focus-visible { background: var(--wash); outline: none; }
+.row .name { padding: 7px 10px 7px 6px; font-size: 14px; line-height: 20px; }
+.row .name small { display: block; color: var(--text-muted); font-size: 12px; line-height: 15px; white-space: nowrap; }
+.row .fig { padding: 7px 6px 7px 12px; text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; line-height: 20px; white-space: nowrap; }
+.row .fig small { color: var(--text-secondary); font-size: 12.5px; }
+.track { position: relative; margin: 0 8px; min-height: 34px; }
+.track .g { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--grid); }
+.track .link { position: absolute; top: 50%; height: 2px; margin-top: -1px; background: var(--baseline); border-radius: 1px; }
+.track .pt { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
+             box-shadow: 0 0 0 2px var(--surface); }
+.track .pt.b { background: var(--surface); border: 2.5px solid var(--baseline); }
+.track .pt.e { background: var(--estimate); z-index: 1; }
+.row:hover .pt, .row:focus-visible .pt { box-shadow: 0 0 0 2px var(--plane); }
+.axis { display: grid; grid-template-columns: minmax(150px, 232px) 1fr 108px; }
+.axis .ticks { position: relative; margin: 0 8px; height: 22px; border-top: 1px solid var(--axis); }
+.axis .ticks span { position: absolute; top: 4px; transform: translateX(-50%); font-size: 12px; color: var(--text-muted);
+                    font-variant-numeric: tabular-nums; white-space: nowrap; }
+.axis-title { text-align: center; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+#tip { position: absolute; z-index: 5; pointer-events: none; min-width: 210px; background: var(--surface);
+       border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 13px;
+       box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); }
+#tip b { display: block; margin-bottom: 4px; }
+#tip div { display: flex; justify-content: space-between; gap: 16px; color: var(--text-secondary); }
+#tip div span:first-child { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; order: 2; }
+#tip div i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+
+/* table */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 12.5px; }
+td small { color: var(--text-muted); }
+tr:last-child td { border-bottom: 0; }
+
+.notes { color: var(--text-secondary); font-size: 13.5px; }
+.notes li { margin-bottom: 5px; }
+details { margin-top: 4px; }
+summary { cursor: pointer; font-weight: 600; }
+details dl { margin: 10px 0 0; font-size: 13.5px; }
+details dt { font-weight: 600; margin-top: 10px; }
+details dd { margin: 2px 0 0; color: var(--text-secondary); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+button {
+  font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-primary); cursor: pointer;
+}
+button:hover { background: var(--wash); }
+button.primary { background: var(--accent); border-color: transparent; color: #fff; }
+footer { color: var(--text-muted); font-size: 12.5px; margin-top: 22px; }
+
+@media (max-width: 640px) {
+  .row, .axis { grid-template-columns: 1fr 96px; }
+  .row .name { grid-column: 1; }
+  .row .fig { grid-column: 2; grid-row: 1; }
+  .row .track { grid-column: 1 / -1; grid-row: 2; min-height: 24px; }
+  .axis > :first-child, .axis > :last-child { display: none; }
+  .axis .ticks { grid-column: 1 / -1; }
+}
+@media print {
+  body { padding: 0; background: #fff; }
+  #upload-card, .actions, #tip { display: none !important; }
+  .card { border: 0; padding: 8px 0; break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>pgc-risk</h1>
+  <p class="lede">Estimated lifetime probability of 13 psychiatric disorders from a genome file, using the
+    Psychiatric Genomics Consortium's GWAS results. A statistical expectation, not a diagnosis.</p>
+
+  <section id="upload-card">
+    <div id="drop" tabindex="0" role="button" aria-label="Choose a genome file">
+      <strong>Drop your genome file here, or click to choose it</strong>
+      <span>23andMe, AncestryDNA, MyHeritage or FamilyTreeDNA raw data (.txt, .csv, .zip, .gz), or a VCF / gVCF</span>
+    </div>
+    <input id="file" type="file" hidden>
+    <div class="private">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+      <span>__PRIVACY__</span>
+    </div>
+    __SHARE__
+  </section>
+
+  <section id="progress" class="card" hidden aria-live="polite">
+    <div id="stage">Uploading</div>
+    <div class="meter"><i id="bar"></i></div>
+    <div id="stage-detail"></div>
+  </section>
+
+  <div id="error" class="msg critical" hidden role="alert">
+    <span class="ico" aria-hidden="true">!</span><div><b>Could not score this file</b><span id="error-text"></span></div>
+  </div>
+
+  <section id="results" hidden>
+    <div id="warnings"></div>
+
+    <div class="card">
+      <h2>Your file</h2>
+      <dl class="facts" id="facts"></dl>
+    </div>
+
+    <div class="card">
+      <h2>Lifetime risk: population baseline and your estimate</h2>
+      <p class="sub">Each row is one disorder. The axis is logarithmic, so equal distances are equal ratios.</p>
+      <div class="legend" aria-hidden="true">
+        <span><i class="dot b"></i>Population baseline</span>
+        <span id="legend-estimate"><i class="dot e"></i>Your estimate</span>
+      </div>
+      <div id="chart"><div id="rows"></div>
+        <div class="axis"><div></div><div class="ticks" id="ticks"></div><div></div></div>
+        <div class="axis-title">Lifetime risk</div>
+        <div id="tip" hidden></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>The numbers</h2>
+      <p class="sub">Score percentile is where this genome's polygenic score falls among people of European ancestry.
+        Accuracy is the share of the liability to the disorder that the score captures.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Disorder</th><th>Baseline</th><th>Your estimate</th><th>Relative</th>
+          <th>Score percentile</th><th>SNPs used</th><th>Accuracy</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h2>How to read this</h2>
+      <ul class="notes">
+        <li><b>Your estimate</b> is the lifetime risk among people whose polygenic score matches this one. It is not a
+          prediction for one person: most people with a high score never develop the disorder, and most people who
+          do develop it do not have a high score.</li>
+        <li>Common-variant scores capture about 7% of the liability to schizophrenia and bipolar disorder, 4% for
+          depression and 2% or less for the others. Family history, life events and rare variants are not included.</li>
+        <li id="low-note" hidden>Rows marked <i>little information</i> come from small studies: the estimate stays
+          close to the baseline whatever the genotype.</li>
+        <li>The scores are calibrated for European ancestry only. Within Europe, regional ancestry can move a score
+          by a few tenths of a standard deviation.</li>
+        <li>This is a research tool, not a medical test. If a result worries you, a doctor or a genetic counsellor
+          is the right person to talk to.</li>
+      </ul>
+      <details>
+        <summary>Where each number comes from</summary>
+        <dl id="sources"></dl>
+      </details>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="again">Score another file</button>
+      <button id="save-json">Save results (JSON)</button>
+      <button id="copy-text">Copy as text</button>
+      <button id="print">Print or save as PDF</button>
+    </div>
+  </section>
+
+  <footer>pgc-risk __VERSION__ · summary statistics: Psychiatric Genomics Consortium (CC BY 4.0) · LD reference: 1000 Genomes Project</footer>
+</main>
+
+<script>
+"use strict";
+const TOKEN = "__TOKEN__";
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+let lastResult = null;
+
+// ---------------------------------------------------------------- formatting
+const pct = (x) => {
+  const v = 100 * x;
+  if (v < 0.095) return v.toFixed(2) + "%";
+  if (v < 9.95) return v.toFixed(1) + "%";
+  return v.toFixed(0) + "%";
+};
+const ordinal = (p) => {
+  const v = Math.min(99, Math.max(1, Math.round(100 * p)));
+  const suf = (v % 100 >= 10 && v % 100 <= 20) ? "th" : ({1: "st", 2: "nd", 3: "rd"}[v % 10] || "th");
+  return v + suf;
+};
+const num = (n) => n.toLocaleString("en-US");
+const FORMATS = {"23andme": "23andMe-style export", ancestry: "AncestryDNA export",
+                 csv: "MyHeritage / FamilyTreeDNA export", vcf: "VCF"};
+const BASIS = {published: "published", scaled: "published, scaled", "hold-out": "own hold-out test",
+               expected: "estimated from study size"};
+
+// ---------------------------------------------------------------- upload
+const drop = $("drop"), input = $("file");
+drop.addEventListener("click", () => input.click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+input.addEventListener("change", () => { if (input.files.length) start(input.files[0]); input.value = ""; });
+["dragenter", "dragover"].forEach((t) => document.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => document.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+document.addEventListener("drop", (e) => { const f = e.dataTransfer && e.dataTransfer.files; if (f && f.length) start(f[0]); });
+
+function show(what) {
+  $("upload-card").hidden = what !== "upload" && what !== "error";
+  $("progress").hidden = what !== "progress";
+  $("results").hidden = what !== "results";
+  $("error").hidden = what !== "error";
+}
+function fail(message) { $("error-text").textContent = message; show("error"); }
+function stage(title, detail, fraction) {
+  $("stage").textContent = title;
+  $("stage-detail").textContent = detail || "";
+  $("bar").style.width = Math.round(100 * Math.min(1, Math.max(0, fraction))) + "%";
+}
+
+async function start(file) {
+  show("progress");
+  stage("Handing the file to the scorer", file.name, 0);
+  // if this device's sign-in has ended, go back to the access-code page before sending a large file
+  try {
+    const check = await fetch("/api/session", {headers: {"X-Token": TOKEN}, cache: "no-store"});
+    if (check.status === 401 || check.status === 403) return location.reload();
+  } catch (err) {
+    return fail("The scorer did not answer. Is the pgc-risk window still open?");
+  }
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/score");
+  xhr.setRequestHeader("X-Token", TOKEN);
+  xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+  xhr.setRequestHeader("Content-Type", "application/octet-stream");
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) stage("Handing the file to the scorer", file.name + " · " + (e.loaded / 1048576).toFixed(0) + " of " + (e.total / 1048576).toFixed(0) + " MB", 0.25 * e.loaded / e.total);
+  };
+  xhr.onerror = () => fail("The scorer did not answer. Is the pgc-risk window still open?");
+  xhr.onload = () => {
+    let body = {};
+    try { body = JSON.parse(xhr.responseText); } catch (err) { /* handled below */ }
+    if (xhr.status === 401) return location.reload();
+    if (xhr.status !== 200 || !body.job) return fail(body.error || ("Upload refused (" + xhr.status + ")."));
+    poll(body.job);
+  };
+  xhr.send(file);
+}
+
+async function poll(job) {
+  for (;;) {
+    let s;
+    try {
+      const r = await fetch("/api/job/" + job, {headers: {"X-Token": TOKEN}, cache: "no-store"});
+      s = await r.json();
+      if (r.status === 401) return location.reload();
+      if (!r.ok) return fail(s.error || "The scorer lost track of this file.");
+    } catch (err) {
+      return fail("The scorer did not answer. Is the pgc-risk window still open?");
+    }
+    if (s.state === "done") { render(s.result); return; }
+    if (s.state === "error") return fail(s.error);
+    if (s.state === "scoring") stage("Scoring", s.label + " (" + (s.done + 1) + " of " + s.total + ")", 0.4 + 0.6 * s.done / Math.max(1, s.total));
+    else if (s.state === "reading") stage("Reading the genome file", "Large sequencing files take about half a minute", 0.3);
+    else stage("Waiting", s.label, 0.25);
+    await new Promise((res) => setTimeout(res, 400));
+  }
+}
+
+// ---------------------------------------------------------------- results
+function render(res) {
+  lastResult = res;
+  const g = res.genome, fit = res.ancestry_fit;
+
+  const warn = $("warnings");
+  warn.replaceChildren();
+  for (const w of res.warnings) {
+    const box = el("div", "msg " + (res.valid ? "warning" : "critical"));
+    box.append(el("span", "ico", "!"));
+    const body = el("div");
+    body.append(el("b", "", res.valid ? "Treat these numbers as rough" : "This genome cannot be scored"), el("span", "", w));
+    box.append(body);
+    warn.append(box);
+  }
+
+  const facts = $("facts");
+  facts.replaceChildren();
+  const fact = (k, v) => { facts.append(el("dt", "", k)); const dd = el("dd"); if (typeof v === "string") dd.textContent = v; else dd.append(v); facts.append(dd); };
+  fact("File", g.file);
+  fact("Format", (FORMATS[g.format] || g.format) + (g.build ? ", GRCh" + g.build : ", build not stated") + (g.sample ? ", sample " + g.sample : ""));
+  fact("Genotypes", num(g.called) + " autosomal SNPs with a call");
+  const level = fit.value <= fit.good_below ? "good" : (fit.value <= fit.invalid_above ? "warning" : "critical");
+  const badge = el("span", "status " + level);
+  badge.append(el("i", "", level === "good" ? "✓" : "!"),
+               document.createTextNode({good: "Matches the European reference", warning: "Borderline", critical: "Does not match the European reference"}[level]));
+  const fitLine = el("span");
+  fitLine.append(badge, document.createTextNode("  ·  " + fit.value.toFixed(3) + " over " + num(fit.snps) + " SNPs (1.00 is typical; above " + fit.invalid_above + " is not scorable)"));
+  fact("Ancestry check", fitLine);
+  for (const n of g.notes) fact("Note", n);
+
+  drawChart(res);
+  drawTable(res);
+
+  const src = $("sources");
+  src.replaceChildren();
+  for (const d of res.disorders) {
+    const s = res.sources[d.key];
+    if (!s) continue;
+    src.append(el("dt", "", d.name));
+    src.append(el("dd", "", "Study: " + s.citation + (s.ref ? " (" + s.ref + ")" : "") + "." + (s.notes ? " " + s.notes : "")));
+    src.append(el("dd", "", "Baseline: " + s.prevalence_source + "."));
+    src.append(el("dd", "", "Accuracy: " + s.accuracy_source));
+  }
+  $("low-note").hidden = !res.disorders.some((d) => d.low_power);
+  show("results");
+  window.scrollTo({top: 0});
+}
+
+const TICKS = [0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1];
+
+function drawChart(res) {
+  const rows = $("rows"), ticksEl = $("ticks");
+  rows.replaceChildren();
+  ticksEl.replaceChildren();
+  $("legend-estimate").hidden = !res.valid;
+  const vals = [];
+  for (const d of res.disorders) {
+    if (d.prevalence != null) vals.push(d.prevalence);
+    if (res.valid && d.probability != null) vals.push(d.probability);
+  }
+  if (!vals.length) return;
+  // the axis runs between the tick marks that enclose the data
+  const lo = Math.max(...TICKS.filter((t) => t <= Math.min(...vals) * 1.0001), TICKS[0]);
+  const hi = Math.min(...TICKS.filter((t) => t >= Math.max(...vals) * 0.9999), 1);
+  const x = (p) => 100 * (Math.log10(Math.min(hi, Math.max(lo, p))) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo));
+  const ticks = TICKS.filter((t) => t >= lo && t <= hi);
+  const every = ticks.length > 8 ? 2 : 1;                 // thin the labels on a narrow range
+  ticks.forEach((t, i) => {
+    if (i % every && i !== ticks.length - 1) return;
+    const s = el("span", "", (100 * t >= 1 ? (100 * t).toFixed(0) : String(+(100 * t).toPrecision(1))) + "%");
+    s.style.left = x(t) + "%";
+    ticksEl.append(s);
+  });
+
+  for (const d of res.disorders) {
+    const shown = res.valid && d.probability != null;
+    const row = el("div", "row");
+    row.tabIndex = 0;
+    const name = el("div", "name", d.name);
+    if (d.low_power) name.append(el("small", "", "little information"));
+    const track = el("div", "track");
+    for (const t of ticks) { const gl = el("div", "g"); gl.style.left = x(t) + "%"; track.append(gl); }
+    if (d.prevalence != null) {
+      if (shown) {
+        const a = x(d.prevalence), b = x(d.probability);
+        const link = el("div", "link");
+        link.style.left = Math.min(a, b) + "%";
+        link.style.width = Math.abs(a - b) + "%";
+        track.append(link);
+      }
+      const pb = el("div", "pt b"); pb.style.left = x(d.prevalence) + "%"; track.append(pb);
+      if (shown) { const pe = el("div", "pt e"); pe.style.left = x(d.probability) + "%"; track.append(pe); }
+    }
+    const fig = el("div", "fig", shown ? pct(d.probability) : "–");
+    if (shown) fig.append(document.createTextNode(" "), el("small", "", d.relative_risk.toFixed(2) + "×"));
+    row.append(name, track, fig);
+    row.setAttribute("aria-label", d.name + ": baseline " + (d.prevalence != null ? pct(d.prevalence) : "unknown") +
+                     (shown ? ", your estimate " + pct(d.probability) + ", " + ordinal(d.percentile) + " percentile" : ", no estimate"));
+    const tipFor = (ev) => showTip(row, d, shown, ev);
+    row.addEventListener("pointermove", tipFor);
+    row.addEventListener("focus", tipFor);
+    row.addEventListener("pointerleave", hideTip);
+    row.addEventListener("blur", hideTip);
+    rows.append(row);
+  }
+}
+
+function showTip(row, d, shown, ev) {
+  const tip = $("tip"), chart = $("chart");
+  tip.replaceChildren(el("b", "", d.name));
+  const line = (value, label, color) => {
+    const r = el("div");
+    const lab = el("span");
+    if (color) { const key = el("i"); key.style.background = "var(--" + color + ")"; lab.append(key); }
+    lab.append(document.createTextNode(label));
+    r.append(el("span", "", value), lab);
+    tip.append(r);
+  };
+  if (shown) line(pct(d.probability), "Your estimate", "estimate");
+  if (d.prevalence != null) line(pct(d.prevalence), "Population baseline", "baseline");
+  if (shown) {
+    line(d.relative_risk.toFixed(2) + "×", "Relative to average");
+    line(ordinal(d.percentile), "Score percentile");
+  }
+  line(num(d.snps_used), "SNPs used");
+  tip.hidden = false;
+  const box = chart.getBoundingClientRect(), r = row.getBoundingClientRect();
+  const px = ev && ev.clientX ? ev.clientX - box.left : r.left - box.left + r.width / 2;
+  tip.style.left = Math.max(0, Math.min(box.width - tip.offsetWidth, px + 14)) + "px";
+  const below = r.bottom - box.top + 6;
+  tip.style.top = (below + tip.offsetHeight > box.height + 40 ? r.top - box.top - tip.offsetHeight - 6 : below) + "px";
+}
+function hideTip() { $("tip").hidden = true; }
+
+function drawTable(res) {
+  const body = $("tbody");
+  body.replaceChildren();
+  for (const d of res.disorders) {
+    const shown = res.valid && d.probability != null;
+    const tr = el("tr");
+    const first = el("td", "", d.name);
+    if (d.low_power) first.append(document.createTextNode(" "), el("small", "", "little information"));
+    tr.append(first,
+      el("td", "", d.prevalence != null ? pct(d.prevalence) : "–"),
+      el("td", "", shown ? pct(d.probability) : "–"),
+      el("td", "", shown ? d.relative_risk.toFixed(2) + "×" : "–"),
+      el("td", "", shown ? ordinal(d.percentile) : "–"),
+      el("td", "", num(d.snps_used)));
+    const acc = el("td", "", d.r2_liability != null ? (100 * d.r2_liability).toFixed(d.r2_liability < 0.01 ? 2 : 1) + "% " : "–");
+    if (d.r2_basis) acc.append(el("small", "", BASIS[d.r2_basis] || d.r2_basis));
+    tr.append(acc);
+    body.append(tr);
+  }
+}
+
+// ---------------------------------------------------------------- actions
+$("again").addEventListener("click", () => { lastResult = null; show("upload"); });
+$("print").addEventListener("click", () => window.print());
+$("copy-text").addEventListener("click", async (e) => {
+  try { await navigator.clipboard.writeText(lastResult.text); e.target.textContent = "Copied"; }
+  catch (err) { e.target.textContent = "Copy failed"; }
+  setTimeout(() => { e.target.textContent = "Copy as text"; }, 1500);
+});
+$("save-json").addEventListener("click", () => {
+  const out = Object.assign({}, lastResult);
+  delete out.text;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], {type: "application/json"}));
+  a.download = "pgc-risk-results.json";
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+</script>
+</body>
+</html>

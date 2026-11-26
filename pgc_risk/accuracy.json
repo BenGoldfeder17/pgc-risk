@@ -1,0 +1,76 @@
+{
+ "scz": {
+  "r2_liability": 0.073,
+  "basis": "published",
+  "source": "Trubetskoy 2022: clumping + thresholding at p<0.05 explained a median 7.3% of liability variance in left-out cohorts. This tool's own hold-outs (trained on one sex, tested on the other, about half the sample): 6.7% and 5.3%."
+ },
+ "bip": {
+  "r2_liability": 0.0672,
+  "basis": "scaled",
+  "source": "O'Connell 2025: 8.4% with PRS-CS-auto in clinical cohorts, from the European GWAS without self-reported cases; times 0.8 for a clumping score."
+ },
+ "mdd": {
+  "r2_liability": 0.039,
+  "basis": "published",
+  "source": "Adams 2025: 3.9% for clumping + thresholding at p<=0.05 from this same public file (mean of 42 left-out cohorts). This tool's own hold-out on UK Biobank alone: 2.2%."
+ },
+ "anx": {
+  "r2_liability": 0.0182,
+  "basis": "scaled",
+  "source": "Strom 2026: 2.27% with MegaPRS in UK Biobank; times 0.8 for a clumping score."
+ },
+ "adhd": {
+  "r2_liability": 0.0211,
+  "basis": "expected",
+  "source": "Expected from GWAS size (Neff 98,832) and SNP heritability (0.14 at prevalence 0.05) with M = 92,000. Demontis 2023 gives no hold-out figure on the liability scale."
+ },
+ "asd": {
+  "r2_liability": 0.0104,
+  "basis": "expected",
+  "source": "Expected from GWAS size (Neff 43,769) and SNP heritability (0.118 at prevalence 0.0122) with M = 92,000. Grove 2019 reports 2.45% on the Nagelkerke scale, which corresponds to roughly 1% of liability."
+ },
+ "ptsd": {
+  "r2_liability": 0.0015,
+  "basis": "published",
+  "source": "Nievergelt 2019: 0.15% between independent PTSD data sets (clumping score)."
+ },
+ "ocd": {
+  "r2_liability": 0.008,
+  "basis": "hold-out",
+  "source": "This tool's own hold-out: trained without UK Biobank, tested on UK Biobank (776 cases): 0.7% with all SNPs, 1.0% with array SNPs. No published figure."
+ },
+ "ts": {
+  "r2_liability": 0.0109,
+  "basis": "expected",
+  "source": "Expected from GWAS size (Neff 12,611) and SNP heritability (0.21 at prevalence 0.008) with M = 92,000. Yu 2019 gives no hold-out figure."
+ },
+ "an": {
+  "r2_liability": 0.0074,
+  "basis": "expected",
+  "source": "Expected from GWAS size (Neff 9,794) and SNP heritability (0.2 at prevalence 0.01) with M = 92,000. Duncan 2017 gives no hold-out figure; the far larger 2019 GWAS (not on the Hub) reached 1.7%."
+ },
+ "bpd": {
+  "r2_liability": 0.0228,
+  "basis": "scaled",
+  "source": "Streit 2026: 3.1% and 2.6% with PRS-CS in two independent replication cohorts (4.6% in the discovery cohorts); mean times 0.8 for a clumping score."
+ },
+ "alc": {
+  "r2_liability": 0.0011,
+  "basis": "expected",
+  "source": "Expected from GWAS size (Neff 16,634) and SNP heritability (0.09 at prevalence 0.159) with M = 92,000. Walters 2018 gives no liability-scale hold-out figure."
+ },
+ "cud": {
+  "r2_liability": 0.0087,
+  "basis": "expected",
+  "source": "Expected from GWAS size (Neff 65,408) and SNP heritability (0.121 at prevalence 0.085) with M = 92,000. Johnson 2020 gives no hold-out figure for the disorder itself."
+ },
+ "_method": {
+  "m_effective": 92000.0,
+  "m_anchors": {
+   "depression, published (Adams 2025)": 86920,
+   "schizophrenia, men -> women hold-out": 89067,
+   "schizophrenia, women -> men hold-out": 98674
+  },
+  "simple_vs_bayesian": 0.8
+ }
+}

@@ -1,0 +1,14 @@
+/* Page chrome for web/index.html when it is served on its own (the tool's styles are in tool.css). */
+html { background: #f4f1e6; }
+body { margin: 0; padding: 2.2rem 1rem 4rem; font: 16px/1.55 Georgia, "Times New Roman", serif; color: #26211a; background: #f4f1e6; }
+main { max-width: 62rem; margin: 0 auto; }
+h1 { font-size: 2.2rem; margin: 0 0 .3rem; }
+h2 { font-weight: 600; }
+.lede { color: #5c554a; font-style: italic; max-width: 60ch; margin: 0 0 1.4rem; }
+a { color: #2c5848; }
+.btn { display: inline-flex; align-items: center; min-height: 44px; font: 700 .82rem ui-monospace, Consolas, monospace;
+       letter-spacing: .06em; text-transform: uppercase; text-decoration: none; padding: .7rem 1.2rem; border-radius: 3px;
+       border: 1px solid #2c5848; box-sizing: border-box; }
+.btn-solid { background: #2c5848; color: #fcf9f1; }
+.btn-ghost { background: transparent; color: #2c5848; }
+.foot { color: #5c554a; font-size: .9rem; margin-top: 2rem; }

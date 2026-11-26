@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page may load its own scripts and styles and nothing else, and may not make any
+     network request from script (connect-src 'none'): a file you choose cannot leave your device. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; worker-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>pgc-risk in the browser</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="standalone.css">
+<link rel="stylesheet" href="tool.css">
+</head>
+<body>
+<main>
+<h1>pgc-risk</h1>
+<p class="lede">Estimated lifetime probability of 13 psychiatric disorders from a genotyping-chip file, using the
+Psychiatric Genomics Consortium's GWAS results. It runs in your browser. A statistical expectation, not a diagnosis.</p>
+
+<!-- tool:start -->
+<div class="pr-root" id="pr-root">
+  <div class="pr-card pr-privacy" role="note">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+    <p><strong>Your genetic data is not uploaded.</strong>
+      Your genome file is not sent to this site or to anyone else. Your browser opens it and reads it on your own
+      device, and the results are worked out there. This page is locked so that its code cannot make network
+      requests at all, so once it has loaded you can switch off your internet connection before choosing your
+      file and it will still work.</p>
+  </div>
+
+  <section class="pr-card" id="pr-step-data">
+    <h2>1. Get the reference data</h2>
+    <p>The scores are built from a reference file that you download once and load from your own disk:</p>
+    <div class="pr-links">
+      <a class="btn btn-solid" href="https://github.com/BenGoldfeder17/pgc-risk/releases/download/v0.1.0/pgc-risk-reference-full-v1.pgcr" rel="noopener noreferrer">Full · 35 MB</a>
+      <a class="btn btn-ghost" href="https://github.com/BenGoldfeder17/pgc-risk/releases/download/v0.1.0/pgc-risk-reference-chips-v1.pgcr" rel="noopener noreferrer">Compact · 12 MB</a>
+    </div>
+    <p class="pr-sub">The files are hosted on GitHub. Full works with any genotyping chip. Compact holds only the
+      SNPs commonly placed on chips and is meant for phones; it may use fewer of your file's SNPs.</p>
+    <p id="pr-data-status"><span class="pr-status"><i>–</i>Not loaded yet</span></p>
+    <button class="pr-linkbtn" id="pr-forget" hidden>Remove the reference data from this browser</button>
+  </section>
+
+  <section id="pr-step-genome">
+    <h2>2. Choose your file</h2>
+    <div id="pr-drop" tabindex="0" role="button" aria-label="Choose files">
+      <strong id="pr-drop-title">Drop the reference data file and your genome file here, or click to choose them</strong>
+      <span>Genome file: a 23andMe, AncestryDNA, MyHeritage, FamilyTreeDNA or LivingDNA raw-data export (.txt, .csv, .zip or .gz)</span>
+    </div>
+    <input id="pr-file" type="file" multiple hidden>
+  </section>
+
+  <div class="pr-card" id="pr-progress" hidden aria-live="polite">
+    <b id="pr-stage">Reading</b>
+    <div class="pr-meter"><i></i></div>
+  </div>
+
+  <div class="pr-card pr-msg critical" id="pr-error" hidden role="alert">
+    <span class="pr-ico" aria-hidden="true">!</span><div><b id="pr-error-title">Could not score this file</b><span id="pr-error-text"></span></div>
+  </div>
+
+  <section id="pr-results" hidden>
+    <div id="pr-warnings"></div>
+
+    <div class="pr-card">
+      <h2>Your file</h2>
+      <dl class="pr-facts" id="pr-facts"></dl>
+    </div>
+
+    <div class="pr-card">
+      <h2>Lifetime risk: population baseline and your estimate</h2>
+      <p class="pr-sub">Each row is one disorder. The axis is logarithmic, so equal distances are equal ratios.</p>
+      <div class="pr-legend" aria-hidden="true">
+        <span><i class="pr-dot b"></i>Population baseline</span>
+        <span id="pr-legend-estimate"><i class="pr-dot e"></i>Your estimate</span>
+      </div>
+      <div id="pr-chart"><div id="pr-rows"></div>
+        <div class="pr-axis"><div></div><div class="pr-ticks" id="pr-ticks"></div><div></div></div>
+        <div class="pr-axis-title">Lifetime risk</div>
+        <div id="pr-tip" hidden></div>
+      </div>
+    </div>
+
+    <div class="pr-card">
+      <h2>The numbers</h2>
+      <p class="pr-sub">Score percentile is where this genome's polygenic score falls among people of European ancestry.
+        Accuracy is the share of the liability to the disorder that the score captures.</p>
+      <div class="pr-scroll"><table>
+        <thead><tr><th>Disorder</th><th>Baseline</th><th>Your estimate</th><th>Relative</th>
+          <th>Score percentile</th><th>SNPs used</th><th>Accuracy</th></tr></thead>
+        <tbody id="pr-tbody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="pr-card">
+      <h2>How to read this</h2>
+      <ul class="pr-notes">
+        <li><b>Your estimate</b> is the lifetime risk among people whose polygenic score matches this one. It is not a
+          prediction for one person: most people with a high score never develop the disorder, and most people who
+          do develop it do not have a high score.</li>
+        <li>Common-variant scores capture about 7% of the liability to schizophrenia and bipolar disorder, 4% for
+          depression and 2% or less for the others. Family history, life events and rare variants are not included.</li>
+        <li id="pr-low-note" hidden>Rows marked <i>little information</i> come from small studies: the estimate stays
+          close to the baseline whatever the genotype.</li>
+        <li>The scores are calibrated for European ancestry only. Within Europe, regional ancestry can move a score
+          by a few tenths of a standard deviation.</li>
+        <li>This is a research tool, not a medical test. If a result worries you, a doctor or a genetic counsellor
+          is the right person to talk to.</li>
+      </ul>
+      <details>
+        <summary>Where each number comes from</summary>
+        <dl id="pr-sources"></dl>
+      </details>
+    </div>
+
+    <div class="pr-actions">
+      <button class="pr-primary" id="pr-again">Score another file</button>
+      <button id="pr-save">Save results (JSON)</button>
+      <button id="pr-copy">Copy as text</button>
+      <button id="pr-print">Print or save as PDF</button>
+    </div>
+  </section>
+</div>
+<script type="module" src="app.js"></script>
+<!-- tool:end -->
+
+<p class="foot">Source, method and validation: <a href="https://github.com/BenGoldfeder17/pgc-risk" rel="noopener noreferrer">github.com/BenGoldfeder17/pgc-risk</a>.
+Summary statistics: Psychiatric Genomics Consortium (CC BY 4.0). LD reference: 1000 Genomes Project.</p>
+</main>
+</body>
+</html>

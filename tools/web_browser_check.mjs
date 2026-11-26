@@ -10,7 +10,7 @@
 // It fails if the page logs an error, if the browser reports a blocked resource, or if the page
 // made any request at all after its own files had loaded, or any request to another host.
 //
-// usage: node tools/web_browser_check.mjs <folder to serve> <page, e.g. index.html> <bundle> <genome> [screenshot.png]
+// usage: node tools/web_browser_check.mjs <folder to serve, or https://site> <page, e.g. index.html> <bundle> <genome> [screenshot.png]
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -20,8 +20,9 @@ import { readBundle, scoreGenomeBytes, unwrap } from "../web/pgcrisk-core.js";
 
 const [root, pageArg, bundlePath, genomePath, shot] = process.argv.slice(2);
 const pagePath = "/" + pageArg.replace(/^\/+/, "");      // given without the leading slash (shells rewrite "/x")
+const remote = /^https?:/.test(root);                      // a deployed site instead of a local folder
 const port = 8700 + Math.floor(Math.random() * 200);
-const origin = `http://127.0.0.1:${port}`;
+const origin = remote ? root.replace(/[/]+$/, "") : `http://127.0.0.1:${port}`;
 // a plain static file server, standing in for the web host
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css",
                ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff", ".webp": "image/webp", ".json": "application/json" };
@@ -32,7 +33,7 @@ const server = createServer((req, res) => {
   res.writeHead(200, { "Content-Type": MIME[extname(file)] || "application/octet-stream" });
   res.end(readFileSync(file));
 });
-await new Promise((r) => server.listen(port, "127.0.0.1", r));
+if (!remote) await new Promise((r) => server.listen(port, "127.0.0.1", r));
 const EDGE = ["C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe", "C:/Program Files/Microsoft/Edge/Application/msedge.exe"];
 const debugPort = 9300 + Math.floor(Math.random() * 500);
 const profile = mkdtempSync(join(tmpdir(), "pgc-risk-edge-"));
@@ -147,7 +148,7 @@ try {
 } finally {
   ws.close();
   edge.kill();
-  server.close();
+  if (!remote) server.close();
   await sleep(500);
   try { rmSync(profile, { recursive: true, force: true }); } catch { /* browser still letting go */ }
 }
